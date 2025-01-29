@@ -1,56 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import sharp from "sharp";
+import { uploadToCloudinary } from "@/config/cloudinary.config";
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const file = formData.get("imageFile") as File | null;
+    const imageFile = formData.get("imageFile") as File;
 
-    if (!file) {
+    // If no file is selected
+    if (!imageFile) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const timestamp = Date.now();
-    const sanitizedFileName = file.name
-      .replace(/[^a-zA-Z0-9.\-_]/g, "_") 
-      .replace(/\s+/g, "_")  
-      .replace(/:/g, "_");
+    // Convert file to buffer
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const originalFileName = `${timestamp}_${sanitizedFileName}`;
+    // Upload the original image
+    const originalUpload: any = await uploadToCloudinary(
+      buffer,
+      "original_images"
+    );
 
-    // Convert file to a Buffer
-    const fileData = Buffer.from(await file.arrayBuffer());
-  
+    // Convert the image to grayscale
+    const grayscaleBuffer = await sharp(buffer).grayscale().toBuffer();
 
-
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    // Save original file
-    const originalFilePath = path.join(uploadsDir, originalFileName);
-    await fs.writeFile(originalFilePath, fileData);
+    // Upload processed image
+    const grayscaleUpload: any = await uploadToCloudinary(
+      grayscaleBuffer,
+      "grayscale_images"
+    );
 
     // simulate 10 minute delay
     await new Promise((resolve) => setTimeout(resolve, 60000));
-    
-    // save grayscale file
-    const grayscaleFilePath = path.join(
-      uploadsDir,
-      `grayscale-${originalFileName}`
-    );
-    await sharp(fileData).grayscale().toFile(grayscaleFilePath);
 
+    // return response
     return NextResponse.json({
-        message: "File uploaded and processed successfully",
-        originalFile: `/uploads/${originalFileName}`,
-        grayscaleFile: `/uploads/grayscale-${originalFileName}`,
+      success: true,
+      originalFile: originalUpload.secure_url,
+      grayscaleFile: grayscaleUpload.secure_url,
     });
-  } catch (error) {
-    console.error("Error uploading or processing file:", error);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: "Failed to upload or process file" },
+      { error: "Upload failed", details: error.message },
       { status: 500 }
     );
   }
