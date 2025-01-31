@@ -8,6 +8,8 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [processing, setProcessing] = useState<boolean>(false);
 
   // Handle file changes
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -19,14 +21,17 @@ export default function Home() {
   // Handle submit
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setOriginalImage(null)
- setProcessedImage(null)
+    setOriginalImage(null);
+    setProcessedImage(null);
+    setProcessing(true);
+
     if (!selectedFile) {
       alert("Please select a file first.");
+      setProcessing(false);
       return;
     }
-    const toastId = toast.loading("Processing...");
-    
+    // const toastId :any= toast.loading("Processing started");
+
     const formData = new FormData();
     formData.append("imageFile", selectedFile);
 
@@ -37,18 +42,56 @@ export default function Home() {
       });
 
       const data = await response.json();
-      console.log("data-->>",data);
+      // console.log("Response data:", data);
 
       if (response.ok) {
-        setOriginalImage(data.originalFile); 
-        setProcessedImage(data.grayscaleFile); 
-        toast.success("Processing success", { id: toastId, duration: 1000 });
+        setJobId(data.jobId); 
+        // toast.success("Processing started", { duration: 1000 });
+        
+        pollForCompletion(data.jobId);
       } else {
         console.error("Failed to upload file.");
+        toast.error("Failed to start processing", { duration: 2000 });
+        setProcessing(false);
       }
     } catch (error) {
-      toast.error(`${error}`, { id: toastId, duration: 2000 });
+      toast.error(`${error}`, {  duration: 2000 });
+      setProcessing(false);
     }
+  };
+
+  // Polling function to check for job completion
+  const pollForCompletion = async (jobId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/fileUpload?jobId=${jobId}`);
+        const data = await response.json();
+        // console.log("Polling status:", data);
+
+        if (response.ok && data.status === "completed") {
+          clearInterval(interval);
+          if (data.originalUrl && data.grayscaleUrl) {
+            setOriginalImage(data.originalUrl);
+            setProcessedImage(data.grayscaleUrl);
+            toast.success("Processing completed", { duration: 1000 });
+          } else {
+            toast.error("No image URLs received", { duration: 2000 });
+          }
+          setProcessing(false);
+        } else if (response.ok && data.status === "processing") {
+          // console.log("Still processing...");
+        } else {
+          clearInterval(interval);
+          toast.error("Error in processing", { duration: 2000 });
+          setProcessing(false);
+        }
+      } catch (error) {
+        console.error("Polling failed", error);
+        clearInterval(interval);
+        toast.error("Error while checking status", { duration: 2000 });
+        setProcessing(false);
+      }
+    }, 15000); // Poll every 5 seconds
   };
 
   return (
@@ -71,13 +114,21 @@ export default function Home() {
         <button
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all focus:outline-none"
           type="submit"
+          disabled={processing}
         >
-          Process Image
+          {processing ? "Processing..." : "Process Image"}
         </button>
       </form>
 
       <div className="mt-8 flex flex-wrap justify-center gap-8">
-        {originalImage && (
+        {processing && (
+          <div className="text-center">
+            <div className="text-xl font-medium text-gray-800">Processing...</div>
+            <div className="mt-4 animate-spin">🔄</div>
+          </div>
+        )}
+
+        {originalImage && !processing && (
           <div className="text-center">
             <h2 className="text-xl font-medium text-gray-800">Original Image:</h2>
             <Image
@@ -90,7 +141,7 @@ export default function Home() {
           </div>
         )}
 
-        {processedImage && (
+        {processedImage && !processing && (
           <div className="text-center">
             <h2 className="text-xl font-medium text-gray-800">Processed Image:</h2>
             <Image
