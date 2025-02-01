@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { uploadToCloudinary } from "@/config/cloudinary.config";
 
-// A simple in-memory job tracking system
+// job tracking
 const jobs: { [key: string]: { status: string; originalUrl?: string; grayscaleUrl?: string } } = {};
 
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Generate a jobId to track processing
+    // Generate a jobId
     const jobId = Math.random().toString(36).substring(7);
     jobs[jobId] = { status: "processing" };
 
@@ -35,16 +30,14 @@ export async function POST(req: NextRequest) {
 
    
     setTimeout(async () => {
-     
       const grayscaleBuffer = await sharp(buffer).grayscale().toBuffer();
-
       // Upload the processed image
       const grayscaleUpload: any = await uploadToCloudinary(grayscaleBuffer, "grayscale_images");
       jobs[jobId].grayscaleUrl = grayscaleUpload.secure_url;
       jobs[jobId].status = "completed";
-    }, 120000); 
+    }, 600000); 
 
-    // Return jobId to the client
+    // Return jobId 
     return NextResponse.json({ jobId });
   } catch (error: any) {
     return NextResponse.json({ error: "Upload failed", details: error.message }, { status: 500 });
@@ -60,6 +53,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired job ID" }, { status: 400 });
   }
 
-  // Return job status and URLs if completed
   return NextResponse.json(jobs[jobId]);
 }

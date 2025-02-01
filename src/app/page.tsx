@@ -30,11 +30,10 @@ export default function Home() {
       setProcessing(false);
       return;
     }
-    // const toastId :any= toast.loading("Processing started");
 
     const formData = new FormData();
     formData.append("imageFile", selectedFile);
-
+    // call api
     try {
       const response = await fetch("/api/fileUpload", {
         method: "POST",
@@ -42,12 +41,9 @@ export default function Home() {
       });
 
       const data = await response.json();
-      // console.log("Response data:", data);
 
       if (response.ok) {
-        setJobId(data.jobId); 
-        // toast.success("Processing started", { duration: 1000 });
-        
+        setJobId(data.jobId);
         pollForCompletion(data.jobId);
       } else {
         console.error("Failed to upload file.");
@@ -55,7 +51,7 @@ export default function Home() {
         setProcessing(false);
       }
     } catch (error) {
-      toast.error(`${error}`, {  duration: 2000 });
+      toast.error(`${error}`, { duration: 2000 });
       setProcessing(false);
     }
   };
@@ -79,7 +75,6 @@ export default function Home() {
           }
           setProcessing(false);
         } else if (response.ok && data.status === "processing") {
-          // console.log("Still processing...");
         } else {
           clearInterval(interval);
           toast.error("Error in processing", { duration: 2000 });
@@ -91,12 +86,14 @@ export default function Home() {
         toast.error("Error while checking status", { duration: 2000 });
         setProcessing(false);
       }
-    }, 15000); // Poll every 5 seconds
+    }, 15000);
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-4xl font-semibold text-gray-900 mb-6">Make Grayscale Images</h1>
+      <h1 className="text-4xl font-semibold text-gray-900 mb-6">
+        Make Grayscale Images
+      </h1>
 
       <form
         className="bg-white p-8 rounded-lg shadow-lg w-full sm:w-96"
@@ -123,14 +120,18 @@ export default function Home() {
       <div className="mt-8 flex flex-wrap justify-center gap-8">
         {processing && (
           <div className="text-center">
-            <div className="text-xl font-medium text-gray-800">Processing...</div>
+            <div className="text-xl font-medium text-gray-800">
+              Processing...
+            </div>
             <div className="mt-4 animate-spin">🔄</div>
           </div>
         )}
 
         {originalImage && !processing && (
           <div className="text-center">
-            <h2 className="text-xl font-medium text-gray-800">Original Image:</h2>
+            <h2 className="text-xl font-medium text-gray-800">
+              Original Image:
+            </h2>
             <Image
               src={originalImage}
               alt="Original"
@@ -143,7 +144,9 @@ export default function Home() {
 
         {processedImage && !processing && (
           <div className="text-center">
-            <h2 className="text-xl font-medium text-gray-800">Processed Image:</h2>
+            <h2 className="text-xl font-medium text-gray-800">
+              Processed Image:
+            </h2>
             <Image
               src={processedImage}
               alt="Processed"
